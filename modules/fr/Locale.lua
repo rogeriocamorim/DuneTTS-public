@@ -407,6 +407,8 @@ return {
     firstSnooperRecallEffectInfo = "Ayant rappelé votre premier fouineur, vous pouvez défausser une carte pour gagne 1 mesure d’épice.",
     finalDeliveryTooltip = "Dernière livraison.",
     gurneySmile = "↯ Gurney montre ses dents.",
+    chaniTacticianSpice = "↯ Chani gagne 1 unité d'épice (Tacticienne).",
+    chaniTacticianWater = "↯ Chani gagne 1 mesure d'eau (Tacticienne).",
     imperialBirthright = "↯ Irulan exerce son droit de naissance.",
     loyalty = "↯ Margot récolte les fruits de sa loyauté",
     stabanSpiceSmuggling = "↯ Staban détourne sa part d’épice.",

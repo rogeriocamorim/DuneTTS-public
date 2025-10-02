@@ -326,6 +326,12 @@ function Action.troops(color, from, to, baseCount)
     Types.assertIsInteger(baseCount)
     local count = Park.transfert(baseCount, Action.getTroopPark(color, from), Action.getTroopPark(color, to))
 
+    -- bloodlines Chani passive: track retreats / losses from combat
+    -- If troops leave the combat (from == 'combat') and actually moved (count > 0), emit event
+    if from == 'combat' and count > 0 then
+        Helper.emitEvent('troopRetreatedFromCombat', color, count, to)
+    end
+
     if not Action.troopTransferCoalescentQueue then
 
         local function coalesce(t1, t2)

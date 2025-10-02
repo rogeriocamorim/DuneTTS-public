@@ -463,6 +463,8 @@ return {
     piterTwistedGenius = "↯ Piter De Vries is a twisted genius!",
     lietHatesTheMaker = "↯ Liet Kynes hates the Maker! Gets 1 trash, 1 spice and 1 intrigue.",
     lietHatesTheMakerDeepDesert = "↯ Liet Kynes really hates the Maker! Gets 2 trash, 2 spice and 2 intrigue.",
+    chaniTacticianSpice = "↯ Chani gains 1 spice (Tactician).",
+    chaniTacticianWater = "↯ Chani gains 1 water (Tactician).",
 
     -- Uprising leaders
     stabanTuek = "Staban Tuek",

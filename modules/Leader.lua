@@ -883,15 +883,72 @@ Leader.bl_Chani = Helper.createClass(Leader, {
         local marker = getObjectFromGUID("759054")
         marker.setPosition(leaderCard.positionToWorld(Leader.bl_Chani.positions[3]) + Vector(0, 0.5, 0))
         marker.setInvisibleTo({})
-    end
-    -- Signet - Fedaykin Manuever - retreat any number of troops OR 1 water 2 card draw
-})
 
-Leader.bl_Duncan = Helper.createClass(Leader, {
-    -- Passive - Ginaz Swordmaster - swordmaster costs 2 less
-        -- DONE in function MainBoard._getSwordmasterCost()
-    -- Signet - Into the Fray - send agent into conflict for 2 strength, 3 strength if you have SM
-        -- DONE in function Combat.calculateCombatForce
+        -- bloodlines Chani passive automation: advance training marker when troops retreat/are removed from combat.
+        -- We treat both retreat (combat -> garrison/supply) and losses handled via recall phase: recall uses Park.putObject (not Action.troops),
+        -- so we additionally hook phaseEnd(combatEnd) to count surviving to recall difference if needed later. For now we advance only on explicit retreats.
+        Leader.bl_Chani._listenersRegisteredByColor = Leader.bl_Chani._listenersRegisteredByColor or {}
+        if not Leader.bl_Chani._listenersRegisteredByColor[color] then
+            local function advance(amount)
+                if amount <= 0 then return end
+                local markerObj = getObjectFromGUID('759054')
+                if not markerObj then return end
+                local leaderCardLocal = PlayBoard.findLeaderCard(color)
+                if not leaderCardLocal then return end
+                local worldPositions = {}
+                for i,pos in ipairs(Leader.bl_Chani.positions) do
+                    worldPositions[i] = leaderCardLocal.positionToWorld(pos)
+                end
+                local currentPos = markerObj.getPosition()
+                local closestIndex = 1
+                local bestDist = 1e9
+                for i,p in ipairs(worldPositions) do
+                    local dx = p.x - currentPos.x
+                    local dz = p.z - currentPos.z
+                    local d = dx*dx + dz*dz
+                    if d < bestDist then
+                        bestDist = d
+                        closestIndex = i
+                    end
+                end
+                local startIndex = 3
+                local lastIndex = #worldPositions
+                if closestIndex < startIndex then closestIndex = startIndex end
+
+                Leader.bl_Chani._currentIndexByColor = Leader.bl_Chani._currentIndexByColor or {}
+                if not Leader.bl_Chani._currentIndexByColor[color] then
+                    Leader.bl_Chani._currentIndexByColor[color] = closestIndex
+                end
+
+                local leader = PlayBoard.getLeader(color)
+                local index = closestIndex
+                local rewardIndices = { [6] = "spice", [lastIndex] = "water" }
+                for _ = 1, amount do
+                    if index == lastIndex then
+                        index = startIndex
+                    else
+                        index = index + 1
+                        local reward = rewardIndices[index]
+                        if reward and leader then
+                            leader.resources(color, reward, 1)
+                        end
+                    end
+                end
+                Leader.bl_Chani._currentIndexByColor[color] = index
+                markerObj.setPositionSmooth(worldPositions[index] + Vector(0,0.5,0), false, true)
+            end
+
+            Helper.registerEventListener('troopRetreatedFromCombat', function(retreatColor, amount)
+                if retreatColor ~= color then return end
+                advance(amount)
+            end)
+            Helper.registerEventListener('troopsRemovedFromCombatAtRecall', function(recallColor, amount)
+                if recallColor ~= color then return end
+                advance(amount)
+            end)
+
+            Leader.bl_Chani._listenersRegisteredByColor[color] = true
+        end        -- DONE in function Combat.calculateCombatForce
 })
 
 Leader.bl_Esmar = Helper.createClass(Leader, {
