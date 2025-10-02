@@ -103,6 +103,18 @@ function Combat._transientSetUp(settings)
             TurnControl.overridePhaseTurnSequence(turnSequence)
             Combat.showRanking(turnSequence, Combat.ranking)
         elseif phase == "recall" then
+                -- bloodlines: emit event with remaining troop counts in combat before they are recalled (supports Chani passive)
+                local troopCounts = {}
+                for _, object in ipairs(Combat.combatCenterZone.getObjects()) do
+                    for _, color in ipairs(PlayBoard.getActivePlayBoardColors()) do
+                        if Types.isTroop(object, color) then
+                            troopCounts[color] = (troopCounts[color] or 0) + 1
+                        end
+                    end
+                end
+                for color, count in pairs(troopCounts) do
+                    Helper.emitEvent("troopsRemovedFromCombatAtRecall", color, count)
+                end
             for _, object in ipairs(Combat.rewardTokenZone.getObjects()) do
                 if Types.isVictoryPointToken(object) or Types.isObjectiveToken(object) then
                     MainBoard.trash(object)

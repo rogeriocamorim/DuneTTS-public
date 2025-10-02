@@ -883,6 +883,79 @@ Leader.bl_Chani = Helper.createClass(Leader, {
         local marker = getObjectFromGUID("759054")
         marker.setPosition(leaderCard.positionToWorld(Leader.bl_Chani.positions[3]) + Vector(0, 0.5, 0))
         marker.setInvisibleTo({})
+
+        -- bloodlines Chani passive automation: advance training marker when troops retreat/are removed from combat.
+        -- We treat both retreat (combat -> garrison/supply) and losses handled via recall phase: recall uses Park.putObject (not Action.troops),
+        -- so we additionally hook phaseEnd(combatEnd) to count surviving to recall difference if needed later. For now we advance only on explicit retreats.
+        if not Leader.bl_Chani.listenerRegistered then
+            local function advance(amount)
+                if amount <= 0 then return end
+                local markerObj = getObjectFromGUID('759054')
+                if not markerObj then return end
+                local leaderCardLocal = PlayBoard.findLeaderCard(color)
+                if not leaderCardLocal then return end
+                local worldPositions = {}
+                for i,pos in ipairs(Leader.bl_Chani.positions) do
+                    worldPositions[i] = leaderCardLocal.positionToWorld(pos)
+                end
+                local currentPos = markerObj.getPosition()
+                local closestIndex = 1
+                local bestDist = 1e9
+                for i,p in ipairs(worldPositions) do
+                    -- Manual squared distance (ignore Y) to avoid reliance on Vector.distance / magnitude nuances
+                    local dx = p.x - currentPos.x
+                    local dz = p.z - currentPos.z
+                    local d = dx*dx + dz*dz  -- squared distance sufficient for comparison
+                    if d < bestDist then
+                        bestDist = d
+                        closestIndex = i
+                    end
+                end
+                local startIndex = 3  -- starting slot after any reset
+                local lastIndex = #worldPositions
+                if closestIndex < startIndex then closestIndex = startIndex end
+
+                -- Table to persist per-color index state
+                Leader.bl_Chani._currentIndexByColor = Leader.bl_Chani._currentIndexByColor or {}
+                if not Leader.bl_Chani._currentIndexByColor[color] then
+                    Leader.bl_Chani._currentIndexByColor[color] = closestIndex
+                end
+
+                local leader = PlayBoard.getLeader(color)
+                local index = closestIndex
+                -- Reward indices (discrete track):
+                --  * index 6  -> 1 spice when you ENTER it (landing or later pass after a wrap)
+                --  * lastIndex -> 1 water when you ENTER it (landing or later pass after a wrap)
+                --  Leaving a reward space does NOT grant its reward again; only entering counts.
+                --  We model multi-step movement as a sequence of 1-step advances so "passing over" a reward
+                --  is equivalent to briefly landing on it during that sequence.
+                local rewardIndices = { [6] = "spice", [lastIndex] = "water" }
+                for _ = 1, amount do
+                    if index == lastIndex then
+                        -- Wrap: move from lastIndex -> startIndex; no reward for lastIndex on departure.
+                        index = startIndex
+                        -- startIndex itself has no reward.
+                    else
+                        index = index + 1
+                        local reward = rewardIndices[index]
+                        if reward and leader then
+                            leader.resources(color, reward, 1)
+                        end
+                    end
+                end
+                Leader.bl_Chani._currentIndexByColor[color] = index
+                markerObj.setPositionSmooth(worldPositions[index] + Vector(0,0.5,0), false, true)
+            end
+            Helper.registerEventListener('troopRetreatedFromCombat', function(retreatColor, amount)
+                if retreatColor ~= color then return end
+                advance(amount)
+            end)
+            Helper.registerEventListener('troopsRemovedFromCombatAtRecall', function(recallColor, amount)
+                if recallColor ~= color then return end
+                advance(amount)
+            end)
+            Leader.bl_Chani.listenerRegistered = true
+        end
     end
     -- Signet - Fedaykin Manuever - retreat any number of troops OR 1 water 2 card draw
 })
